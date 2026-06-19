@@ -1,0 +1,42 @@
+test_id,test_name,suite,environment,result,evidence,defect_ref,comments
+ST-01,TypeScript typecheck,static,sandbox,Pass,bunx tsc --noEmit exit 0,,Clean.
+ST-02,No duplicate user declaration (visits.$visitId.tsx),static,sandbox,Pass,Covered by typecheck,,
+ST-03,db:test script registered,static,sandbox,Pass,package.json scripts.db:test,,
+ST-04,Production vite build,static,sandbox,Not Run,,,Not requested this slice
+ST-05,Lint,static,sandbox,Not Run,,,Not requested this slice
+RO-01,Seven canonical role codes,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-02,Legacy role codes absent,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-03,tms_admin.is_global true,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-04,Abbey site exists,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-05,Three Abbey templates with correct weekdays,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-06,Tuesday rating lines = 7,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-07,Friday rating lines = 11,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-08,Sunday rating lines = 9,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-09,All four scope item_types present,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-10,Scope items per template,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-11,Friday and Sunday rotation programmes,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-12,Rotation anchors NULL,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-13,Tuesday has no rotation programme,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-14,Four steps per programme,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-15,Every rotation step has focus link,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-16,reviews.urgent_source_constraint_id present,read-only,live,Pass,01_read_only_assertions.sql,,Slice A
+RO-17,focus_item_scores.cleaning_visit_id present,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-18,Four evidence storage policies,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-19,14 workflow RPCs present,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-20,profiles self_or_admin policy,read-only,live,Pass,01_read_only_assertions.sql,,
+RO-21,No duplicate stable codes,read-only,live,Pass,01_read_only_assertions.sql,,
+AR-Suite,Auth and roles mutating suite,mutating,n/a,Generated,10_auth_roles.sql,,Needs disposable DB
+VW-Suite,Visit workflow mutating suite,mutating,n/a,Generated,20_visit_workflow.sql,,Needs disposable DB
+RV-Suite,Review workflow mutating suite,mutating,n/a,Generated,30_review_workflow.sql,,Needs disposable DB
+AC-Suite,Action transition mutating suite,mutating,n/a,Generated,40_actions.sql,,Needs disposable DB
+DP-Suite,Directory privacy suite,mutating,n/a,Generated,50_directory_privacy.sql,,Needs disposable DB
+EV-Suite,Evidence storage suite,mutating,n/a,Generated,60_evidence_storage.sql,,Needs disposable DB
+SI-Suite,Seed idempotency suite,mutating,n/a,Generated,70_seed_idempotency.sql,,Needs disposable DB
+UI-01,Auth guard redirects to /auth,manual,browser,Not Run,,,Manual check required
+UI-02,Handover dirty state survives refetch,manual,browser,Not Run,,,Manual check required
+UI-03,Review scores rehydrate,manual,browser,Not Run,,,Manual check required
+UI-04,Other reviewer draft is read-only,manual,browser,Not Run,,,Manual check required
+UI-05,Reviewer context panel loads,manual,browser,Not Run,,,Manual check required
+UI-06,Action controls reflect permissions,manual,browser,Not Run,,,Manual check required
+UI-07,Duplicate visit response handled,manual,browser,Not Run,,,Manual check required
+UI-08,London-local date,manual,browser,Not Run,,,Manual check required
