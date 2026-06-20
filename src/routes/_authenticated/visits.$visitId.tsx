@@ -551,6 +551,7 @@ function ReviewSection({
     queryFn: () => listOpenReviewForVisit(visitId),
   });
   const canReview = isAdmin || hasSiteRole(visit.site_id, ROLES_REVIEW);
+  const canSupersede = isAdmin || hasSiteRole(visit.site_id, ROLES_REOPEN);
 
   // Permitted user directory (display names + role codes) for this site.
   // Used for the supervisor name, team-member names, and any otherDraft owner.
@@ -681,6 +682,9 @@ function ReviewSection({
               lineLabels={lineLabelById}
               focusLabels={focusLabelById}
             />
+            {canSupersede && r.status === "submitted" && !myDraft && !otherDraft && (
+              <SupersedeControl reviewId={r.id} onCreated={() => reviews.refetch()} />
+            )}
           </div>
         ))}
         {myDraft && canReview && (
@@ -1196,11 +1200,21 @@ function ReviewDraftForm({
         p_payload: payload,
       });
       if (e1) throw e1;
-      const { error: e2 } = await supabase.rpc("rpc_submit_review", {
-        p_review_id: review.id,
-        p_expected_version: vNew as number,
-      });
-      if (e2) throw e2;
+      // A superseding draft (supersedes_review_id set) must go through the
+      // dedicated RPC, which also marks the original review superseded.
+      if (review.supersedes_review_id) {
+        const { error: e2 } = await supabase.rpc("rpc_submit_superseding_review", {
+          p_new_review_id: review.id,
+          p_expected_version: vNew as number,
+        });
+        if (e2) throw e2;
+      } else {
+        const { error: e2 } = await supabase.rpc("rpc_submit_review", {
+          p_review_id: review.id,
+          p_expected_version: vNew as number,
+        });
+        if (e2) throw e2;
+      }
     },
     onSuccess: () => {
       toast.success("Review submitted");
@@ -1287,6 +1301,13 @@ function ReviewDraftForm({
 
   return (
     <div className="border rounded-md p-3 space-y-3">
+      {review.supersedes_review_id && (
+        <div className="rounded-md border border-amber-500 bg-amber-50 p-2 text-xs dark:bg-amber-950/30">
+          This is a <span className="font-medium">superseding review</span>. Submitting
+          it replaces the previous submitted review (kept on record) and marks it
+          superseded.
+        </div>
+      )}
       <div className="space-y-1">
         <Label>General comment</Label>
         <Textarea
@@ -1408,8 +1429,16 @@ function ReviewDraftForm({
 
 
 function ReopenBlock({ visitId, onReopened }: { visitId: string; onReopened: () => void }) {
+  const { isAdmin } = useAuth();
   const [reason, setReason] = useState("");
-  const mut = useMutation({
+  const reviews = useQuery({
+    queryKey: ["reviews", visitId],
+    queryFn: () => listOpenReviewForVisit(visitId),
+  });
+  // A plain reopen is rejected by the server while any draft review is open.
+  const activeDraft = reviews.data?.find((r: any) => r.status === "draft");
+
+  const reopen = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("rpc_reopen_visit", {
         p_visit_id: visitId,
@@ -1425,6 +1454,24 @@ function ReopenBlock({ visitId, onReopened }: { visitId: string; onReopened: () 
     onError: (e: any) => toast.error(e.message),
   });
 
+  const reopenCancel = useMutation({
+    mutationFn: async () => {
+      if (!activeDraft) return;
+      const { error } = await supabase.rpc("rpc_admin_reopen_visit_with_cancel", {
+        p_visit_id: visitId,
+        p_reason: reason,
+        p_cancel_draft_review_id: activeDraft.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Draft review cancelled and visit reopened");
+      setReason("");
+      onReopened();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <details className="border rounded-md p-3 text-sm">
       <summary className="cursor-pointer font-medium">Reopen visit</summary>
@@ -1434,14 +1481,39 @@ function ReopenBlock({ visitId, onReopened }: { visitId: string; onReopened: () 
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={!reason || mut.isPending}
-          onClick={() => mut.mutate()}
-        >
-          Reopen
-        </Button>
+        {activeDraft ? (
+          isAdmin ? (
+            <div className="space-y-2">
+              <p className="text-xs text-amber-600">
+                An in-progress review draft is blocking a normal reopen. As an admin you
+                can cancel that draft and reopen in one step — the draft and its scores
+                are discarded.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!reason || reopenCancel.isPending}
+                onClick={() => reopenCancel.mutate()}
+              >
+                Cancel draft review &amp; reopen
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              An in-progress review must be cancelled by a TMS admin before this visit
+              can be reopened.
+            </p>
+          )
+        ) : (
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={!reason || reopen.isPending}
+            onClick={() => reopen.mutate()}
+          >
+            Reopen
+          </Button>
+        )}
       </div>
     </details>
   );
@@ -1545,5 +1617,55 @@ function SubmittedReviewScores({
         </div>
       )}
     </div>
+  );
+}
+
+// Ops/GM/Admin control to start a superseding review off a submitted one.
+// The new draft is owned by the caller and appears in the review section for
+// them to edit and submit (via rpc_submit_superseding_review).
+function SupersedeControl({
+  reviewId,
+  onCreated,
+}: {
+  reviewId: string;
+  onCreated: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const mut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("rpc_create_superseding_review", {
+        p_original_review_id: reviewId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Superseding review started — edit and submit it below.");
+      setReason("");
+      onCreated();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <details className="mt-2 text-xs">
+      <summary className="cursor-pointer text-muted-foreground">
+        Supersede this review
+      </summary>
+      <div className="mt-2 space-y-2">
+        <Textarea
+          placeholder="Reason for superseding (required)"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!reason || mut.isPending}
+          onClick={() => mut.mutate()}
+        >
+          Create superseding review
+        </Button>
+      </div>
+    </details>
   );
 }
