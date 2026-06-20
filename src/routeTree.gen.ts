@@ -18,6 +18,7 @@ import { Route as AuthenticatedVisitsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedActionsIndexRouteImport } from './routes/_authenticated/actions.index'
 import { Route as AuthenticatedVisitsNewRouteImport } from './routes/_authenticated/visits.new'
 import { Route as AuthenticatedVisitsVisitIdRouteImport } from './routes/_authenticated/visits.$visitId'
+import { Route as AuthenticatedV2VisitsRouteImport } from './routes/_authenticated/v2.visits'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedActionsActionIdRouteImport } from './routes/_authenticated/actions.$actionId'
 
@@ -68,6 +69,11 @@ const AuthenticatedVisitsVisitIdRoute =
     path: '/visits/$visitId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedV2VisitsRoute = AuthenticatedV2VisitsRouteImport.update({
+  id: '/v2/visits',
+  path: '/v2/visits',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/field-guide': typeof AuthenticatedFieldGuideRoute
   '/actions/$actionId': typeof AuthenticatedActionsActionIdRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/v2/visits': typeof AuthenticatedV2VisitsRoute
   '/visits/$visitId': typeof AuthenticatedVisitsVisitIdRoute
   '/visits/new': typeof AuthenticatedVisitsNewRoute
   '/actions/': typeof AuthenticatedActionsIndexRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/actions/$actionId': typeof AuthenticatedActionsActionIdRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/v2/visits': typeof AuthenticatedV2VisitsRoute
   '/visits/$visitId': typeof AuthenticatedVisitsVisitIdRoute
   '/visits/new': typeof AuthenticatedVisitsNewRoute
   '/actions': typeof AuthenticatedActionsIndexRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/actions/$actionId': typeof AuthenticatedActionsActionIdRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/v2/visits': typeof AuthenticatedV2VisitsRoute
   '/_authenticated/visits/$visitId': typeof AuthenticatedVisitsVisitIdRoute
   '/_authenticated/visits/new': typeof AuthenticatedVisitsNewRoute
   '/_authenticated/actions/': typeof AuthenticatedActionsIndexRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/field-guide'
     | '/actions/$actionId'
     | '/admin/users'
+    | '/v2/visits'
     | '/visits/$visitId'
     | '/visits/new'
     | '/actions/'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/'
     | '/actions/$actionId'
     | '/admin/users'
+    | '/v2/visits'
     | '/visits/$visitId'
     | '/visits/new'
     | '/actions'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/actions/$actionId'
     | '/_authenticated/admin/users'
+    | '/_authenticated/v2/visits'
     | '/_authenticated/visits/$visitId'
     | '/_authenticated/visits/new'
     | '/_authenticated/actions/'
@@ -229,6 +241,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVisitsVisitIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/v2/visits': {
+      id: '/_authenticated/v2/visits'
+      path: '/v2/visits'
+      fullPath: '/v2/visits'
+      preLoaderRoute: typeof AuthenticatedV2VisitsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/admin/users'
@@ -251,6 +270,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedActionsActionIdRoute: typeof AuthenticatedActionsActionIdRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedV2VisitsRoute: typeof AuthenticatedV2VisitsRoute
   AuthenticatedVisitsVisitIdRoute: typeof AuthenticatedVisitsVisitIdRoute
   AuthenticatedVisitsNewRoute: typeof AuthenticatedVisitsNewRoute
   AuthenticatedActionsIndexRoute: typeof AuthenticatedActionsIndexRoute
@@ -262,6 +282,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedActionsActionIdRoute: AuthenticatedActionsActionIdRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedV2VisitsRoute: AuthenticatedV2VisitsRoute,
   AuthenticatedVisitsVisitIdRoute: AuthenticatedVisitsVisitIdRoute,
   AuthenticatedVisitsNewRoute: AuthenticatedVisitsNewRoute,
   AuthenticatedActionsIndexRoute: AuthenticatedActionsIndexRoute,
@@ -279,3 +300,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

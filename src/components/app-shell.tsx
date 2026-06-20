@@ -54,6 +54,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Field Guide
             </Link>
+            <Link
+              to="/v2/visits"
+              className="px-3 py-1.5 rounded hover:bg-accent"
+              activeProps={{ className: "px-3 py-1.5 rounded bg-accent font-medium" }}
+            >
+              Abbey v2
+            </Link>
             {isAdmin && (
               <Link
                 to="/admin/users"
@@ -84,6 +91,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <Link to="/field-guide" className="px-3 py-2 whitespace-nowrap">
             Guide
+          </Link>
+          <Link to="/v2/visits" className="px-3 py-2 whitespace-nowrap">
+            v2
           </Link>
           {isAdmin && (
             <Link to="/admin/users" className="px-3 py-2 whitespace-nowrap">
