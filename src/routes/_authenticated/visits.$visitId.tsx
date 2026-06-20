@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EvidencePanel } from "@/components/evidence-panel";
 import {
   visitStatusLabel,
   focusItemStatusLabel,
@@ -413,6 +414,18 @@ function HandoverForm({ detail, onSaved }: { detail: any; onSaved: () => void })
                   setFocus(next);
                 }}
               />
+              {f.id ? (
+                <EvidencePanel
+                  entityKind="visit_focus_item"
+                  entityId={f.id}
+                  siteId={v.site_id}
+                  canUpload
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Save the draft to attach photos.
+                </p>
+              )}
             </div>
           ))}
         </CardContent>
@@ -526,6 +539,13 @@ function SubmittedView({ detail }: { detail: any }) {
                 {f.completion_note && (
                   <div className="text-xs mt-1 text-muted-foreground">{f.completion_note}</div>
                 )}
+                <div className="mt-2">
+                  <EvidencePanel
+                    entityKind="visit_focus_item"
+                    entityId={f.id}
+                    siteId={v.site_id}
+                  />
+                </div>
               </div>
             ))}
           </CardContent>
@@ -885,6 +905,13 @@ function ReviewerContextPanel({
               {f.completion_note && (
                 <p className="text-xs mt-1 whitespace-pre-wrap">{f.completion_note}</p>
               )}
+              <div className="mt-2">
+                <EvidencePanel
+                  entityKind="visit_focus_item"
+                  entityId={f.id}
+                  siteId={v.site_id}
+                />
+              </div>
             </div>
           ))}
           {focusByStatus(["inaccessible", "deferred", "not_completed"]).length > 0 && (
