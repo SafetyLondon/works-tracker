@@ -593,7 +593,10 @@ function ReviewSection({
         constraints: constraints.data ?? [],
       };
     },
-    enabled: visit.status === "submitted_for_review" || visit.status === "reviewed",
+    enabled:
+      visit.status === "submitted_for_review" ||
+      visit.status === "reviewed" ||
+      visit.status === "closed",
   });
 
   const startReview = useMutation({
@@ -630,6 +633,14 @@ function ReviewSection({
   );
   const submittedReviews = reviews.data?.filter((r: any) => r.status !== "draft") ?? [];
 
+  // Id → label maps for rendering submitted scores read-only.
+  const lineLabelById = new Map<string, string>();
+  for (const r of reviewContext.data?.ratings ?? [])
+    lineLabelById.set(r.id, r.label_snapshot);
+  const focusLabelById = new Map<string, string>();
+  for (const f of reviewContext.data?.focusItems ?? [])
+    focusLabelById.set(f.id, f.focus_name_snapshot);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -665,6 +676,11 @@ function ReviewSection({
               </span>
             </div>
             {r.general_comment && <p className="mt-1 text-xs">{r.general_comment}</p>}
+            <SubmittedReviewScores
+              reviewId={r.id}
+              lineLabels={lineLabelById}
+              focusLabels={focusLabelById}
+            />
           </div>
         ))}
         {myDraft && canReview && (
@@ -1428,5 +1444,106 @@ function ReopenBlock({ visitId, onReopened }: { visitId: string; onReopened: () 
         </Button>
       </div>
     </details>
+  );
+}
+
+// Read-only colour band for a submitted score row (mirrors the DB-generated
+// rating_band_display: 1–2 red, 3 amber, 4–5 green, N/A neutral).
+function bandFor(s: any): { label: string; cls: string } {
+  if (s.is_na) return { label: "N/A", cls: "bg-muted text-muted-foreground" };
+  const r = s.rating as number | null;
+  if (r === null) return { label: "—", cls: "bg-muted text-muted-foreground" };
+  if (r <= 2)
+    return {
+      label: String(r),
+      cls: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
+    };
+  if (r === 3)
+    return {
+      label: String(r),
+      cls: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+    };
+  return {
+    label: String(r),
+    cls: "bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300",
+  };
+}
+
+function SubmittedReviewScores({
+  reviewId,
+  lineLabels,
+  focusLabels,
+}: {
+  reviewId: string;
+  lineLabels: Map<string, string>;
+  focusLabels: Map<string, string>;
+}) {
+  const detail = useQuery({
+    queryKey: ["review-detail", reviewId],
+    queryFn: () => getReviewDetail(reviewId),
+  });
+  if (detail.isLoading)
+    return <p className="mt-2 text-xs text-muted-foreground">Loading scores…</p>;
+  const lineScores = detail.data?.line_scores ?? [];
+  const focusScores = detail.data?.focus_scores ?? [];
+  if (lineScores.length === 0 && focusScores.length === 0)
+    return <p className="mt-2 text-xs text-muted-foreground">No scores recorded.</p>;
+
+  const Row = ({ label, s }: { label: string; s: any }) => {
+    const band = bandFor(s);
+    return (
+      <div className="flex items-start gap-2 py-1 text-xs">
+        <span
+          className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-medium ${band.cls}`}
+        >
+          {band.label}
+        </span>
+        <div className="min-w-0">
+          <div className="font-medium">{label}</div>
+          {s.is_na && s.na_reason && (
+            <div className="text-muted-foreground">N/A — {s.na_reason}</div>
+          )}
+          {s.comment && <div className="text-muted-foreground">{s.comment}</div>}
+          {s.urgent_hs_flag && (
+            <Badge variant="destructive" className="mt-0.5">
+              Urgent H&S
+            </Badge>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      {lineScores.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Rating lines
+          </div>
+          {lineScores.map((s: any) => (
+            <Row
+              key={s.id}
+              label={lineLabels.get(s.visit_rating_line_id) ?? "Rating line"}
+              s={s}
+            />
+          ))}
+        </div>
+      )}
+      {focusScores.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Focus items
+          </div>
+          {focusScores.map((s: any) => (
+            <Row
+              key={s.id}
+              label={focusLabels.get(s.visit_focus_item_id) ?? "Focus item"}
+              s={s}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
