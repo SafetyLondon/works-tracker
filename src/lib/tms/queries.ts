@@ -36,6 +36,20 @@ export async function listRotationProgrammes(siteId: string) {
   return data ?? [];
 }
 
+// All rotation programmes the caller can see (admins see every site). Used by
+// the rotation-anchor admin screen.
+export async function listAllRotationProgrammes() {
+  const { data, error } = await supabase
+    .from("rotation_programmes")
+    .select(
+      "id, code, name, cycle_length_weeks, anchor_date, site_id, visit_template_id, sites(name), visit_templates(name)",
+    )
+    .is("archived_at", null)
+    .order("name");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function listVisits(siteId?: string | null) {
   let q = supabase
     .from("cleaning_visits")

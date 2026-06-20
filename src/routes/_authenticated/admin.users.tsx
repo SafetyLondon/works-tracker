@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { listSites } from "@/lib/tms/queries";
+import { listSites, listAllRotationProgrammes } from "@/lib/tms/queries";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -150,6 +151,8 @@ function UsersAdmin() {
         </p>
       </section>
 
+      <RotationAnchorsSection />
+
       <section>
         <h2 className="font-semibold text-sm mb-2">Existing assignments</h2>
         <div className="border rounded-md divide-y">
@@ -184,5 +187,103 @@ function UsersAdmin() {
         </div>
       </section>
     </div>
+  );
+}
+
+// London-local "today" week number for a programme, matching the DB helper
+// tms_internal.recommended_rotation_week: floor((today - anchor)/7) mod cycle + 1.
+function rotationWeekToday(anchor: string | null, cycle: number): number | null {
+  if (!anchor) return null;
+  const a = new Date(anchor + "T00:00:00");
+  const today = new Date();
+  const days = Math.floor((today.getTime() - a.getTime()) / 86_400_000);
+  return ((((Math.floor(days / 7) % cycle) + cycle) % cycle) + 1);
+}
+
+function RotationRow({ p }: { p: any }) {
+  const qc = useQueryClient();
+  const [date, setDate] = useState<string>(p.anchor_date ?? "");
+  const setAnchor = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("rpc_set_rotation_anchor", {
+        p_programme_id: p.id,
+        p_anchor_date: date,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Anchor set — rotation recommendations are now live.");
+      qc.invalidateQueries({ queryKey: ["rotation-programmes"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const wk = rotationWeekToday(p.anchor_date, p.cycle_length_weeks);
+  return (
+    <div className="border rounded-md p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="font-medium text-sm">
+            {p.sites?.name} · {p.name}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {p.visit_templates?.name} · {p.cycle_length_weeks}-week cycle
+          </div>
+        </div>
+        {p.anchor_date ? (
+          <Badge variant="secondary">This week: wk {wk}</Badge>
+        ) : (
+          <Badge variant="destructive">Not set — recommendations off</Badge>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-auto"
+        />
+        <Button
+          size="sm"
+          disabled={!date || setAnchor.isPending || date === (p.anchor_date ?? "")}
+          onClick={() => setAnchor.mutate()}
+        >
+          {p.anchor_date ? "Update anchor" : "Set anchor (= week 1)"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        The date you set becomes week 1; the {p.cycle_length_weeks}-week cycle counts
+        forward automatically. New visits then generate that week's focus
+        recommendations.
+      </p>
+    </div>
+  );
+}
+
+function RotationAnchorsSection() {
+  const programmes = useQuery({
+    queryKey: ["rotation-programmes"],
+    queryFn: listAllRotationProgrammes,
+  });
+  return (
+    <section className="border rounded-md p-3 space-y-3">
+      <div>
+        <h2 className="font-semibold text-sm">Rotation anchors</h2>
+        <p className="text-xs text-muted-foreground">
+          Until a programme has an anchor date, no rotation focus recommendations
+          are generated for its visits. Tuesday (spa) has no rotation.
+        </p>
+      </div>
+      {programmes.isLoading && (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      )}
+      {programmes.isSuccess && programmes.data.length === 0 && (
+        <div className="text-sm text-muted-foreground">No rotation programmes.</div>
+      )}
+      <div className="space-y-2">
+        {(programmes.data ?? []).map((p: any) => (
+          <RotationRow key={p.id} p={p} />
+        ))}
+      </div>
+    </section>
   );
 }
